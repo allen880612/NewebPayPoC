@@ -63,51 +63,15 @@ export interface PaymentResult {
     card4No?: string;
 }
 
-// ============ 退款相關 ============
+// ============ 退款/請款相關 ============
 
-// 退款請求參數（內部使用）
+// 退款請求參數
 export interface RefundParams {
     merchantOrderNo: string;
     tradeNo?: string;        // IndexType=1 時需要
     amount: number;
     timeStamp?: number;      // 選填，預設使用當前時間
 }
-
-// Close API PostData_ 內含參數
-export interface CloseRequestParams {
-    RespondType: string;
-    Version: string;
-    Amt: number;
-    MerchantOrderNo: string;
-    TimeStamp: string;
-    IndexType: number;      // 1=藍新交易序號, 2=商店訂單編號
-    TradeNo: string;
-    CloseType: number;      // 1=請款, 2=退款
-}
-
-// 退款 API 回應
-export interface RefundApiResponse {
-    Status: string;
-    Message: string;
-    Result?: {
-        MerchantID: string;
-        Amt: number;
-        TradeNo: string;
-        MerchantOrderNo: string;
-    };
-}
-
-// 退款結果（給前端用）
-export interface RefundResult {
-    success: boolean;
-    status: string;
-    message: string;
-    tradeNo?: string;
-    merchantOrderNo?: string;
-    amount?: number;
-}
-
-// ============ 請款相關 ============
 
 // 請款請求參數
 export interface CaptureParams {
@@ -117,27 +81,10 @@ export interface CaptureParams {
     timeStamp?: number;      // 選填，預設使用當前時間
 }
 
-// 請款 API 回應（結構同退款）
-export interface CaptureApiResponse {
-    Status: string;
-    Message: string;
-    Result?: {
-        MerchantID: string;
-        Amt: number;
-        TradeNo: string;
-        MerchantOrderNo: string;
-    };
-}
-
-// 請款結果（給前端用）
-export interface CaptureResult {
-    success: boolean;
-    status: string;
-    message: string;
-    tradeNo?: string;
-    merchantOrderNo?: string;
-    amount?: number;
-}
+// Re-export CloseResult 作為 RefundResult/CaptureResult
+// 實際型別定義在 close.ts
+export type { CloseResult as RefundResult } from './close';
+export type { CloseResult as CaptureResult } from './close';
 
 // ============ 交易查詢相關 ============
 
