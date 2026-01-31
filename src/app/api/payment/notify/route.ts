@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyTradeSha, decryptTradeInfo } from '@/lib/newebpay/crypto';
 import { addOrder } from '@/lib/orders';
-import { requestCapture } from '@/lib/newebpay/capture';
+import { getAdapter } from '@/lib/newebpay/adapter';
 import type { DecryptedTradeResult, StoredOrder } from '@/lib/newebpay/types';
 
 export async function POST(request: NextRequest) {
@@ -65,7 +65,8 @@ export async function POST(request: NextRequest) {
             const autoCapture = process.env.NEWEBPAY_AUTO_CAPTURE === 'true';
             if (autoCapture) {
                 console.log('🔄 Auto capture enabled, requesting capture...');
-                const captureResult = await requestCapture({
+                const adapter = getAdapter();
+                const captureResult = await adapter.capture({
                     tradeNo: result.TradeNo,
                     merchantOrderNo: result.MerchantOrderNo,
                     amount: result.Amt,

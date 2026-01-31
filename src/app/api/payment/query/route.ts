@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { queryTradeInfo } from '@/lib/newebpay/query';
+import { getAdapter } from '@/lib/newebpay/adapter';
 import { getOrderByMerchantOrderNo } from '@/lib/orders';
 
 interface QueryRequestBody {
@@ -36,7 +36,9 @@ export async function POST(request: NextRequest) {
         console.log('MerchantOrderNo:', merchantOrderNo);
         console.log('Amount:', amount);
 
-        const result = await queryTradeInfo({
+        // 使用 Adapter 查詢
+        const adapter = getAdapter();
+        const result = await adapter.query({
             merchantOrderNo,
             amount,
         });

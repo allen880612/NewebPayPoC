@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requestCapture } from '@/lib/newebpay/capture';
+import { getAdapter } from '@/lib/newebpay/adapter';
 
 interface CaptureRequestBody {
     tradeNo: string;
@@ -36,8 +36,9 @@ export async function POST(request: NextRequest) {
         console.log('MerchantOrderNo:', body.merchantOrderNo);
         console.log('Amount:', body.amount);
 
-        // 呼叫請款 API
-        const result = await requestCapture({
+        // 使用 Adapter 呼叫請款 API
+        const adapter = getAdapter();
+        const result = await adapter.capture({
             tradeNo: body.tradeNo,
             merchantOrderNo: body.merchantOrderNo,
             amount: body.amount,

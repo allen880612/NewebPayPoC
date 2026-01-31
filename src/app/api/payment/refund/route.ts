@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requestRefund } from '@/lib/newebpay/refund';
+import { getAdapter } from '@/lib/newebpay/adapter';
 import { getOrderByMerchantOrderNo, markOrderAsRefunded } from '@/lib/orders';
 
 interface RefundRequestBody {
@@ -62,8 +62,9 @@ export async function POST(request: NextRequest) {
         console.log('Amount:', amount);
         console.log('Manual Mode:', manual);
 
-        // 執行退款
-        const result = await requestRefund({
+        // 使用 Adapter 執行退款
+        const adapter = getAdapter();
+        const result = await adapter.refund({
             merchantOrderNo,
             tradeNo,
             amount,
