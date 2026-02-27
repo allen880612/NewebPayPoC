@@ -35,7 +35,7 @@ export function decryptTradeInfo(encrypted: string): string {
   // Auto padding is disabled to prevent "bad decrypt" errors from Node's strict checks
   decipher.setAutoPadding(false);
 
-  let decrypted = decipher.update(encrypted, 'hex');
+  const decrypted = decipher.update(encrypted, 'hex');
   const final = decipher.final();
   const buffer = Buffer.concat([decrypted, final]);
 

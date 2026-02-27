@@ -7,6 +7,10 @@ export const NEWEBPAY_CONFIG = {
     TEST_CLOSE_URL: 'https://ccore.newebpay.com/API/CreditCard/Close',
     PROD_CLOSE_URL: 'https://core.newebpay.com/API/CreditCard/Close',
 
+    // Credit Card Cancel URLs (取消授權)
+    TEST_CANCEL_URL: 'https://ccore.newebpay.com/API/CreditCard/Cancel',
+    PROD_CANCEL_URL: 'https://core.newebpay.com/API/CreditCard/Cancel',
+
     // Query URLs (交易查詢)
     TEST_QUERY_URL: 'https://ccore.newebpay.com/API/QueryTradeInfo',
     PROD_QUERY_URL: 'https://core.newebpay.com/API/QueryTradeInfo',
@@ -14,6 +18,7 @@ export const NEWEBPAY_CONFIG = {
     // API 版本
     VERSION: '2.0',           // MPG 版本
     CLOSE_VERSION: '1.1',     // 請款/退款 API 版本
+    CANCEL_VERSION: '1.0',    // 取消授權 API 版本
     QUERY_VERSION: '1.3',     // 查詢 API 版本
 
     // 回應格式
@@ -45,6 +50,13 @@ export const getCloseUrl = () => {
     return isTestEnv()
         ? NEWEBPAY_CONFIG.TEST_CLOSE_URL
         : NEWEBPAY_CONFIG.PROD_CLOSE_URL;
+};
+
+// 取得 Cancel URL (取消授權)
+export const getCancelUrl = () => {
+    return isTestEnv()
+        ? NEWEBPAY_CONFIG.TEST_CANCEL_URL
+        : NEWEBPAY_CONFIG.PROD_CANCEL_URL;
 };
 
 // 取得 Query URL (交易查詢)

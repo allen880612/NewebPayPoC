@@ -22,6 +22,8 @@ import {
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import PaymentIcon from '@mui/icons-material/Payment';
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
+import Link from 'next/link';
 import { PaymentForm } from '@/components/payment/PaymentForm';
 import type { CreatePaymentResponse } from '@/lib/newebpay/types';
 
@@ -274,6 +276,19 @@ export default function NewebPayPoCPage() {
                         </Fade>
                     </CardContent>
                 </Card>
+
+                {/* View Orders Link */}
+                <Box sx={{ mt: 3, textAlign: 'center' }}>
+                    <Button
+                        component={Link}
+                        href="/poc/refund"
+                        variant="outlined"
+                        startIcon={<ReceiptLongIcon />}
+                        size="large"
+                    >
+                        查看訂單
+                    </Button>
+                </Box>
             </Container>
         </Box>
     );

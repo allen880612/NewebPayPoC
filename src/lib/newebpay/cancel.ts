@@ -1,27 +1,22 @@
 /**
- * 共用 Close API 請求邏輯
- * 用於請款 (CloseType=1) 和退款 (CloseType=2)
+ * Cancel Authorization API (取消授權)
+ * Endpoint: /API/CreditCard/Cancel
+ * 用於 CloseStatus=0（未請款）時取消信用卡授權
  */
 import { encryptTradeInfo, generateTradeSha } from './crypto';
-import { getCloseUrl, NEWEBPAY_CONFIG } from './config';
+import { getCancelUrl, NEWEBPAY_CONFIG } from './config';
+import type { CloseResult } from './close';
 
 const MERCHANT_ID = process.env.NEWEBPAY_MERCHANT_ID!;
 
-// Close API 操作類型
-export type CloseType = 1 | 2;  // 1=請款, 2=退款
-
-// 共用請求參數
-export interface CloseRequestParams {
+export interface CancelAuthParams {
     merchantOrderNo: string;
     tradeNo: string;
     amount: number;
-    closeType: CloseType;
-    cancel?: 1;              // 1=取消請款（僅 CloseType=1 時有效）
     timeStamp?: number;
 }
 
-// Close API 回應
-export interface CloseApiResponse {
+interface CancelApiResponse {
     Status: string;
     Message: string;
     Result?: {
@@ -32,37 +27,21 @@ export interface CloseApiResponse {
     };
 }
 
-// 共用結果格式
-export interface CloseResult {
-    success: boolean;
-    status: string;
-    message: string;
-    tradeNo?: string;
-    merchantOrderNo?: string;
-    amount?: number;
-}
-
 /**
- * 建立 Close API PostData（加密前的 URL-encoded 字串）
+ * 建立 Cancel API PostData
  */
-function buildClosePostData(params: CloseRequestParams): string {
+function buildCancelPostData(params: CancelAuthParams): string {
     const timeStamp = params.timeStamp || Math.floor(Date.now() / 1000);
 
-    const data: Record<string, string | number> = {
+    const data = {
         RespondType: 'JSON',
-        Version: NEWEBPAY_CONFIG.CLOSE_VERSION,
+        Version: NEWEBPAY_CONFIG.CANCEL_VERSION,
         Amt: params.amount,
         MerchantOrderNo: params.merchantOrderNo,
         TimeStamp: timeStamp,
-        IndexType: 1,                   // 1 = 使用 TradeNo
+        IndexType: 1,           // 1 = 使用 TradeNo
         TradeNo: params.tradeNo,
-        CloseType: params.closeType,    // 1=請款, 2=退款
     };
-
-    // 取消請款（Cancel=1）
-    if (params.cancel) {
-        data.Cancel = params.cancel;
-    }
 
     return Object.entries(data)
         .map(([key, value]) => `${key}=${encodeURIComponent(String(value))}`)
@@ -70,35 +49,31 @@ function buildClosePostData(params: CloseRequestParams): string {
 }
 
 /**
- * 執行 Close API 請求（請款或退款）
+ * 執行取消授權
  */
-export async function executeCloseRequest(
-    params: CloseRequestParams,
-    operationName: string = params.closeType === 1 ? '請款' : '退款'
-): Promise<CloseResult> {
+export async function executeCancelAuth(params: CancelAuthParams): Promise<CloseResult> {
     try {
         // 1. 建立 PostData 並加密
-        const postDataString = buildClosePostData(params);
+        const postDataString = buildCancelPostData(params);
         const encryptedPostData = encryptTradeInfo(postDataString);
 
         // 2. 產生 HashData (SHA256)
         const hashData = generateTradeSha(encryptedPostData);
 
         // 3. 發送請求
-        const closeUrl = getCloseUrl();
-        console.log(`=== ${operationName} Request ===`);
-        console.log('URL:', closeUrl);
+        const cancelUrl = getCancelUrl();
+        console.log('=== Cancel Auth Request ===');
+        console.log('URL:', cancelUrl);
         console.log('MerchantOrderNo:', params.merchantOrderNo);
         console.log('TradeNo:', params.tradeNo);
         console.log('Amount:', params.amount);
-        console.log('CloseType:', params.closeType);
 
         const formData = new URLSearchParams();
         formData.append('MerchantID_', MERCHANT_ID);
         formData.append('PostData_', encryptedPostData);
         formData.append('HashData_', hashData);
 
-        const response = await fetch(closeUrl, {
+        const response = await fetch(cancelUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
@@ -107,19 +82,19 @@ export async function executeCloseRequest(
         });
 
         const responseText = await response.text();
-        console.log(`=== ${operationName} Response ===`);
+        console.log('=== Cancel Auth Response ===');
         console.log('Raw Response:', responseText);
 
         // 4. 解析回應
-        let result: CloseApiResponse;
+        let result: CancelApiResponse;
         try {
             result = JSON.parse(responseText);
         } catch {
-            console.error(`Failed to parse ${operationName} response`);
+            console.error('Failed to parse cancel response');
             return {
                 success: false,
                 status: 'PARSE_ERROR',
-                message: `無法解析${operationName}回應`,
+                message: '無法解析取消授權回應',
             };
         }
 
@@ -144,11 +119,11 @@ export async function executeCloseRequest(
             };
         }
     } catch (error) {
-        console.error(`${operationName} request error:`, error);
+        console.error('Cancel auth request error:', error);
         return {
             success: false,
             status: 'REQUEST_ERROR',
-            message: error instanceof Error ? error.message : `${operationName}請求失敗`,
+            message: error instanceof Error ? error.message : '取消授權請求失敗',
         };
     }
 }

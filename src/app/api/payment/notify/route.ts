@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyTradeSha, decryptTradeInfo } from '@/lib/newebpay/crypto';
-import { addOrder } from '@/lib/orders';
+import { upsertOrder, upsertTransaction } from '@/lib/storage';
 import { getAdapter } from '@/lib/newebpay/adapter';
-import type { DecryptedTradeResult, StoredOrder } from '@/lib/newebpay/types';
+import type { DecryptedTradeResult, Order, Transaction } from '@/lib/newebpay/types';
 
 export async function POST(request: NextRequest) {
     try {
@@ -30,13 +30,13 @@ export async function POST(request: NextRequest) {
 
         // 2. 解密 TradeInfo
         const decryptedString = decryptTradeInfo(tradeInfo);
-        // 藍新有時回傳的 JSON 可能包含控制字符，建議處理一下，但在此 PoC 先直接解析
-        // Note: 實際開發中可能需要 decodeURIComponent 或處理 padding
         const decryptedData: DecryptedTradeResult = JSON.parse(decryptedString);
 
         console.log('=== Decrypted Result ===');
         console.log('Status:', decryptedData.Status);
         console.log('Message:', decryptedData.Message);
+
+        const now = new Date().toISOString();
 
         if (decryptedData.Status === 'SUCCESS') {
             const result = decryptedData.Result;
@@ -48,18 +48,36 @@ export async function POST(request: NextRequest) {
             console.log('Card4No:', result.Card4No);
             console.log('AuthCode:', result.Auth);
 
-            // Phase 2: 儲存訂單到 JSON
-            const order: StoredOrder = {
+            // 建立 Order
+            const order: Order = {
+                merchantOrderNo: result.MerchantOrderNo,
+                itemDesc: `訂單 ${result.MerchantOrderNo}`,
+                amount: result.Amt,
+                status: 'paid',
+                createdAt: now,
+                updatedAt: now,
+                paidAt: now,
+            };
+            upsertOrder(order);
+
+            // 建立 Transaction
+            const transaction: Transaction = {
+                id: result.MerchantOrderNo,
                 merchantOrderNo: result.MerchantOrderNo,
                 tradeNo: result.TradeNo,
                 amount: result.Amt,
-                itemDesc: `訂單 ${result.MerchantOrderNo}`,
-                payTime: result.PayTime,
-                status: 'paid',
+                status: 'success',
+                tradeStatus: 1,     // 付款成功
+                closeStatus: 0,     // 未請款
+                backStatus: 0,      // 未退款
                 card4No: result.Card4No,
+                paymentMethod: result.PaymentMethod || 'CREDIT',
+                payTime: result.PayTime,
+                createdAt: now,
+                processedAt: now,
             };
-            addOrder(order);
-            console.log('✅ Order saved to JSON');
+            upsertTransaction(transaction);
+            console.log('✅ Order + Transaction saved');
 
             // 條件式自動請款
             const autoCapture = process.env.NEWEBPAY_AUTO_CAPTURE === 'true';

@@ -137,7 +137,7 @@ export interface QueryResult {
 
 // ============ 本地訂單儲存 ============
 
-// 儲存在 JSON 的訂單結構
+// 舊版儲存格式（保留供遷移用）
 export interface StoredOrder {
     merchantOrderNo: string;
     tradeNo: string;
@@ -147,4 +147,47 @@ export interface StoredOrder {
     status: 'paid' | 'refunded';
     card4No?: string;
     refundedAt?: string;
+}
+
+// ============ 新版 Order/Transaction 模型 ============
+
+export type OrderStatus = 'pending' | 'paid' | 'refunding' | 'refunded' | 'cancelled' | 'failed';
+
+export interface Order {
+    merchantOrderNo: string;    // PK
+    itemDesc: string;
+    amount: number;
+    email?: string;
+    status: OrderStatus;
+    createdAt: string;          // ISO
+    updatedAt: string;          // ISO
+    paidAt?: string;
+}
+
+export type TransactionStatus = 'pending' | 'success' | 'failed';
+
+export interface Transaction {
+    id: string;                 // 同 merchantOrderNo（PoC 中 1:1）
+    merchantOrderNo: string;    // FK → Order
+    tradeNo: string;            // NewebPay 交易編號
+    amount: number;
+    status: TransactionStatus;
+    // NewebPay 特有狀態
+    tradeStatus: number;        // 0=未付款, 1=成功, 2=失敗, 3=取消, 6=退款
+    closeStatus: number;        // 0=未請款, 1=等待, 2=處理中, 3=完成
+    backStatus: number;         // 0=未退款, 1=等待, 2=處理中, 3=完成
+    // 共有欄位
+    card4No?: string;
+    paymentMethod?: string;     // 'CREDIT' 等
+    errorCode?: string;
+    errorMessage?: string;
+    payTime?: string;           // NewebPay 格式
+    createdAt: string;
+    processedAt?: string;
+    refundRequestedAt?: string;
+    refundCompletedAt?: string;
+}
+
+export interface OrderWithTransaction extends Order {
+    transaction: Transaction | null;
 }

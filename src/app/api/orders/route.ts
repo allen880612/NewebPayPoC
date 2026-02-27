@@ -1,25 +1,23 @@
 import { NextResponse } from 'next/server';
-import { getOrders, getRefundableOrders } from '@/lib/orders';
+import { getAllOrdersWithTransactions } from '@/lib/storage';
 
-// GET /api/orders - 取得訂單列表
+// GET /api/orders - 取得訂單列表（OrderWithTransaction[] 格式）
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const filter = searchParams.get('filter');
 
     try {
-        let orders;
+        let orders = getAllOrdersWithTransactions();
 
         if (filter === 'refundable') {
-            // 只取得可退款的訂單（status = 'paid'）
-            orders = getRefundableOrders();
-        } else {
-            // 取得所有訂單
-            orders = getOrders();
+            orders = orders.filter(o => o.status === 'paid');
         }
 
-        // 按付款時間倒序排列（最新的在前面）
+        // 按建立時間倒序排列（最新的在前面）
         orders.sort((a, b) => {
-            return new Date(b.payTime).getTime() - new Date(a.payTime).getTime();
+            const timeA = a.paidAt || a.createdAt;
+            const timeB = b.paidAt || b.createdAt;
+            return new Date(timeB).getTime() - new Date(timeA).getTime();
         });
 
         return NextResponse.json({

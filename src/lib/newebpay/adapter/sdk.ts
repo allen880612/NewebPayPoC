@@ -6,6 +6,9 @@ import type { PaymentAdapter } from './interface';
 import type { CaptureParams, RefundParams, QueryParams } from '../types';
 import type { CloseResult } from '../close';
 import type { QueryResult } from '../types';
+import type { CancelAuthParams } from '../cancel';
+import type { SmartRefundResult } from '../smart-refund';
+import { executeSmartRefund } from '../smart-refund';
 
 // Lazy initialization - 避免模組載入時 env 尚未就緒
 let _client: NewebpayClient | null = null;
@@ -155,6 +158,104 @@ export class SdkAdapter implements PaymentAdapter {
                 message: error instanceof Error ? error.message : '退款請求失敗',
             };
         }
+    }
+
+    async cancelAuth(params: CancelAuthParams): Promise<CloseResult> {
+        console.log(`[${this.getName()}] Cancel auth request`);
+        console.log('MerchantOrderNo:', params.merchantOrderNo);
+        console.log('TradeNo:', params.tradeNo);
+        console.log('Amount:', params.amount);
+
+        try {
+            const client = getClient();
+
+            const response = await client.cancelCreditCard({
+                Amt: params.amount,
+                MerchantOrderNo: params.merchantOrderNo,
+                IndexType: 1,
+                TradeNo: params.tradeNo,
+            });
+
+            console.log(`[${this.getName()}] Cancel response:`, response);
+
+            if (response.Status === 'SUCCESS') {
+                const result = response.Result as { TradeNo?: string; MerchantOrderNo?: string; Amt?: number } | undefined;
+                return {
+                    success: true,
+                    status: response.Status,
+                    message: response.Message,
+                    tradeNo: result?.TradeNo,
+                    merchantOrderNo: result?.MerchantOrderNo,
+                    amount: result?.Amt,
+                };
+            } else {
+                return {
+                    success: false,
+                    status: response.Status,
+                    message: response.Message,
+                };
+            }
+        } catch (error) {
+            console.error(`[${this.getName()}] Cancel error:`, error);
+            return {
+                success: false,
+                status: 'SDK_ERROR',
+                message: error instanceof Error ? error.message : '取消授權請求失敗',
+            };
+        }
+    }
+
+    async cancelCapture(params: CancelAuthParams): Promise<CloseResult> {
+        console.log(`[${this.getName()}] Cancel capture request (B033)`);
+        console.log('MerchantOrderNo:', params.merchantOrderNo);
+        console.log('TradeNo:', params.tradeNo);
+        console.log('Amount:', params.amount);
+
+        try {
+            const client = getClient();
+
+            // Close API with CloseType=1 + Cancel=1 = B033 取消請款
+            const response = await client.refundCreditCard({
+                Amt: params.amount,
+                MerchantOrderNo: params.merchantOrderNo,
+                IndexType: 1,
+                TradeNo: params.tradeNo,
+                CloseType: 1,
+                Cancel: 1,
+            });
+
+            console.log(`[${this.getName()}] Cancel capture response:`, response);
+
+            if (response.Status === 'SUCCESS') {
+                const result = response.Result as { TradeNo?: string; MerchantOrderNo?: string; Amt?: number } | undefined;
+                return {
+                    success: true,
+                    status: response.Status,
+                    message: response.Message,
+                    tradeNo: result?.TradeNo,
+                    merchantOrderNo: result?.MerchantOrderNo,
+                    amount: result?.Amt,
+                };
+            } else {
+                return {
+                    success: false,
+                    status: response.Status,
+                    message: response.Message,
+                };
+            }
+        } catch (error) {
+            console.error(`[${this.getName()}] Cancel capture error:`, error);
+            return {
+                success: false,
+                status: 'SDK_ERROR',
+                message: error instanceof Error ? error.message : '取消請款請求失敗',
+            };
+        }
+    }
+
+    async smartRefund(merchantOrderNo: string): Promise<SmartRefundResult> {
+        console.log(`[${this.getName()}] Smart refund request`);
+        return executeSmartRefund(this, merchantOrderNo);
     }
 
     async query(params: QueryParams): Promise<QueryResult> {
