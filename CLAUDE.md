@@ -45,8 +45,11 @@ src/
 │   │       ├── notify/route.ts    # Webhook receiver (verify & decrypt)
 │   │       ├── return/route.ts    # User return handler
 │   │       ├── query/route.ts     # Transaction query API
-│   │       ├── capture/route.ts   # Manual capture (請款)
-│   │       └── refund/route.ts    # Refund processing (退款)
+│   │       ├── capture/route.ts      # Manual capture (請款)
+│   │       ├── refund/route.ts       # Refund processing (退款)
+│   │       ├── smart-refund/route.ts # Smart Refund API
+│   │       ├── batch-refund/route.ts # Batch Refund API
+│   │       └── refund-request/route.ts # Add to refund queue
 │   ├── payment/result/            # Payment result page
 │   └── poc/
 │       ├── newebpay/              # Payment test page
@@ -56,12 +59,20 @@ src/
 │   │   ├── PaymentForm.tsx        # Hidden form for MPG submission
 │   │   └── PaymentResultDialog.tsx
 │   └── refund/
-│       ├── OrderList.tsx          # Order list with actions
-│       ├── ManualRefundForm.tsx   # Manual refund form
-│       └── RefundResultDialog.tsx
+│       ├── OrderList.tsx               # Order list with actions
+│       ├── ManualRefundForm.tsx        # Manual refund form
+│       ├── RefundResultDialog.tsx      # Refund result dialog
+│       ├── SmartRefundResultDialog.tsx # Smart refund result dialog
+│       └── BatchRefundPanel.tsx        # Batch refund queue panel
 └── lib/
     ├── theme.ts                   # MUI theme configuration
-    ├── orders.ts                  # Order storage (file-based for PoC)
+    ├── orders.ts                  # Order storage facade
+    ├── refund-queue.ts            # Refund queue (JSON file persistence)
+    ├── storage/                   # Storage layer
+    │   ├── index.ts               # Storage facade
+    │   ├── orders.ts              # Order CRUD
+    │   ├── transactions.ts        # Transaction CRUD
+    │   └── migrate.ts             # Auto migration from old format
     └── newebpay/
         ├── crypto.ts              # AES encryption/decryption, SHA256
         ├── config.ts              # MPG URLs, API version, test card
@@ -70,12 +81,17 @@ src/
         ├── capture.ts             # Capture (請款) logic
         ├── refund.ts              # Refund (退款) logic
         ├── close.ts               # Shared Close API logic
+        ├── cancel.ts              # Cancel API (取消授權)
+        ├── smart-refund.ts        # Smart Refund engine (決策矩陣 + 執行)
+        ├── batch-refund.ts        # Batch Refund processor
         ├── adapter/               # SDK adapter pattern
         │   ├── interface.ts       # Adapter interface
         │   ├── poc.ts             # Native PoC implementation
         │   └── sdk.ts             # SDK-based implementation
-        └── sdk/                   # NewebPay SDK interfaces
-            └── ...
+        └── sdk/                   # Internal fork of newebpay-mpg-sdk (MIT)
+            ├── index.ts           # Export entry with license notice
+            ├── newebpay.client.ts # Main client (bug-fixed)
+            └── interfaces/        # Type definitions
 ```
 
 ### Crypto Module (`src/lib/newebpay/crypto.ts`)
@@ -95,7 +111,26 @@ NEWEBPAY_HASH_IV=         # 16-character IV
 NEXT_PUBLIC_BASE_URL=     # Public URL (use ngrok for local testing)
 NEWEBPAY_AUTO_CAPTURE=    # Auto capture flag (true/false)
 NEWEBPAY_USE_SDK=         # Use SDK adapter (true/false)
+NEWEBPAY_SMART_REFUND=    # Enable smart refund engine (server-side)
+NEXT_PUBLIC_SMART_REFUND= # Enable smart refund UI (client-side)
 ```
+
+### Smart Refund Decision Matrix
+
+| CloseStatus | BackStatus | Action | Description |
+|:-----------:|:----------:|--------|-------------|
+| 0 | 0 | `cancel_auth` | Cancel API (B01) — 取消授權，不扣款 |
+| 1 | 0 | `cancel_capture` | B033 取消請款 → B01 取消授權（兩步） |
+| 2 | 0 | `standard_refund` | Close API B032 — 退款與請款平行排隊 |
+| 3 | 0 | `standard_refund` | Close API B032 — 標準退款 |
+| * | 1 | `refund_pending` | 等待 21:00 批次處理 |
+| * | 2 | `refund_processing` | 等待銀行回檔 |
+| * | 3 | `already_refunded` | 已完成退款 |
+
+Key constraints:
+- Cancel API (B01): **CS=0 only** — 一旦請款就無法取消授權
+- B033 取消請款: **CS=1 only** — CS=2 後不可取消（21:00 分水嶺）
+- B032 退款: **CS=2 or CS=3** — CS=2 時退款與請款在銀行端平行處理
 
 ## NewebPay Integration Notes
 

@@ -16,6 +16,8 @@
 - **Webhook 回調處理** - NotifyURL 接收付款通知
 - **交易查詢** - 查詢訂單狀態
 - **請款/退款** - 支援手動請款與退款操作
+- **智慧退款** - 自動判斷 CloseStatus/BackStatus 選擇最佳退款路徑
+- **批次退款** - 佇列化退款請求，批次執行 + 重試機制
 - **訂單管理介面** - 管理歷史訂單
 
 ### 快速開始
@@ -81,6 +83,8 @@ NewebPay payment integration Proof of Concept built with Next.js 15 + Material U
 - **Webhook Handler** - NotifyURL payment notifications
 - **Transaction Query** - Order status lookup
 - **Capture/Refund** - Manual capture and refund operations
+- **Smart Refund** - Auto-detect transaction state and choose optimal refund path
+- **Batch Refund** - Queue-based refund with retry mechanism
 - **Order Management UI** - Manage order history
 
 ### Quick Start

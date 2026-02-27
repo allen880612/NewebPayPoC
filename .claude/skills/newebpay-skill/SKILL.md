@@ -42,7 +42,7 @@ description: |
 |------|------|-----|
 | **授權成功** | 信用卡已授權，銀行尚未實際扣款 | MPG 回傳 SUCCESS |
 | **請款** | 通知銀行扣款，錢才會從消費者帳戶扣除 | Close API (CloseType=1) |
-| **退款** | 必須在**請款完成後**才能執行 | Close API (CloseType=2) |
+| **退款** | 請款處理中(CS=2)或完成後(CS=3)才能執行 | Close API (CloseType=2) |
 | **取消授權** | 放棄扣款，適用於「還沒請款」的情況 | Cancel API |
 
 ### ❌ 常見錯誤
@@ -70,6 +70,7 @@ flowchart TB
         AUTH_SUCCESS -->|"發動請款 [B031]"| CLOSE_PENDING["請款申請中<br/>CloseStatus=1"]
         CLOSE_PENDING -->|"取消請款 [B033]"| AUTH_SUCCESS
         CLOSE_PENDING -->|"系統21:00報送"| CLOSE_PROC["請款處理中<br/>CloseStatus=2"]
+        CLOSE_PROC -->|"發動退款 [B032]"| REFUND_PENDING
         CLOSE_PROC -->|"銀行回檔"| CLOSE_DONE["請款完成<br/>CloseStatus=3"]
         CLOSE_DONE -->|"發動退款 [B032]"| REFUND_PENDING["退款申請中<br/>BackStatus=1"]
         REFUND_PENDING -->|"取消退款 [B034]"| CLOSE_DONE
@@ -80,7 +81,10 @@ flowchart TB
     AUTH_SUCCESS -->|"發動取消授權 [B01]"| CANCELLED["已取消授權<br/>TradeStatus=3"]
 ```
 
-> ⚠️ **關鍵**：取消授權 [B01] 只能從「未請款 (CloseStatus=0)」執行，一旦請款就無法取消授權
+> ⚠️ **關鍵限制**：
+> - 取消授權 [B01] 只能從「未請款 (CloseStatus=0)」執行
+> - 取消請款 [B033] 只能在 CloseStatus=1（21:00 前），CS=2 後無法取消
+> - 退款 [B032] 可從 CS=2 或 CS=3 發動（CS=2 時退款與請款在銀行端平行排隊）
 
 ### 狀態對照表
 
@@ -89,7 +93,7 @@ flowchart TB
 | 未付款 | 0 | - | - | 等待消費者付款 | - |
 | 授權成功/未請款 | 1 | 0 | 0 | 請款、取消授權 | B031, B01 |
 | 請款申請中 | 1 | 1 | 0 | 取消請款 | B033 |
-| 請款處理中 | 1 | 2 | 0 | (等待銀行) | - |
+| 請款處理中 | 1 | 2 | 0 | 退款 (與請款平行排隊) | B032 |
 | 請款完成 | 1 | 3 | 0 | 退款 | B032 |
 | 退款申請中 | 1 | 3 | 1 | 取消退款 | B034 |
 | 退款處理中 | 1 | 3 | 2 | (等待銀行) | - |
@@ -437,9 +441,9 @@ const checkValue = crypto.createHash('sha256').update(raw).digest('hex').toUpper
 | 操作 | CloseType | Cancel | 說明 |
 |------|-----------|--------|------|
 | 請款 (B031) | 1 | - | 授權成功後執行 |
-| 退款 (B032) | 2 | - | **請款完成後**才能執行 |
-| 取消請款 (B033) | 1 | 1 | 請款處理中可取消 |
-| 取消退款 (B034) | 2 | 1 | 退款處理中可取消 |
+| 退款 (B032) | 2 | - | **CloseStatus=2~3**（請款處理中或完成後） |
+| 取消請款 (B033) | 1 | 1 | **CS=1 only**（21:00 前，CS=2 後不可取消） |
+| 取消退款 (B034) | 2 | 1 | **BS=1 only**（21:00 前，BS=2 後不可取消） |
 
 ### 請退款金額限制
 

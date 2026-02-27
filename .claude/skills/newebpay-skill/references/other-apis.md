@@ -15,6 +15,7 @@ flowchart TB
         AUTH_SUCCESS -->|"發動請款 [B031]"| CLOSE_PENDING["請款申請中<br/>CloseStatus=1"]
         CLOSE_PENDING -->|"取消請款 [B033]"| AUTH_SUCCESS
         CLOSE_PENDING -->|"系統21:00報送"| CLOSE_PROC["請款處理中<br/>CloseStatus=2"]
+        CLOSE_PROC -->|"發動退款 [B032]"| REFUND_PENDING
         CLOSE_PROC -->|"銀行回檔"| CLOSE_DONE["請款完成<br/>CloseStatus=3"]
         CLOSE_DONE -->|"發動退款 [B032]"| REFUND_PENDING["退款申請中<br/>BackStatus=1"]
         REFUND_PENDING -->|"取消退款 [B034]"| CLOSE_DONE
@@ -49,6 +50,7 @@ flowchart TB
 | 未請款 (CloseStatus=0) | 請款 [B031] | 1 | - | 請款申請中 |
 | 未請款 (CloseStatus=0) | 取消授權 [B01] | - | - | 已取消授權 |
 | 請款申請中 (CloseStatus=1) | 取消請款 [B033] | 1 | 1 | 未請款 |
+| 請款處理中 (CloseStatus=2) | 退款 [B032] | 2 | - | 退款申請中 (與請款平行排隊) |
 | 請款完成 (CloseStatus=3) | 退款 [B032] | 2 | - | 退款申請中 |
 | 退款申請中 (BackStatus=1) | 取消退款 [B034] | 2 | 1 | 請款完成 |
 
@@ -59,9 +61,11 @@ flowchart TB
 - 退款申請 (BackStatus: 1 → 2)
 
 **重要限制**：
-- 取消請款/退款必須在**當日 21:00 前**執行
+- 取消請款必須在**當日 21:00 前**執行（CS=1 時才可取消，CS=2 後不可）
+- 取消退款必須在**當日 21:00 前**執行（BS=1 時才可取消，BS=2 後不可）
 - 報送銀行後狀態變為「處理中」，無法再取消
 - 銀行回檔通常在**次日**完成
+- CS=2（請款處理中）時仍可發動退款 B032，退款與請款在銀行端平行排隊處理
 
 ---
 
@@ -228,7 +232,7 @@ const checkValue = crypto.createHash('sha256').update(raw).digest('hex').toUpper
 
 ## 請退款/取消請退款 [NPA-B031~34]
 
-> ⚠️ **重要**：退款 (B032) 必須在**請款完成後**才能執行
+> ⚠️ **重要**：退款 (B032) 可從 CloseStatus=2（處理中）或 CloseStatus=3（完成）發動
 
 ### 端點
 
@@ -242,9 +246,9 @@ const checkValue = crypto.createHash('sha256').update(raw).digest('hex').toUpper
 | 功能 | 編號 | CloseType | Cancel | 前置條件 |
 |------|------|-----------|--------|----------|
 | 信用卡請款 | B031 | 1 | - | CloseStatus=0 |
-| 信用卡退款 | B032 | 2 | - | **CloseStatus=3** |
-| 取消請款 | B033 | 1 | 1 | CloseStatus=1~2 |
-| 取消退款 | B034 | 2 | 1 | BackStatus=1~2 |
+| 信用卡退款 | B032 | 2 | - | **CloseStatus=2~3** |
+| 取消請款 | B033 | 1 | 1 | **CloseStatus=1** (21:00前) |
+| 取消退款 | B034 | 2 | 1 | **BackStatus=1** (21:00前) |
 
 ### 請求參數 (Form POST)
 
